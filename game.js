@@ -8,6 +8,9 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   
   var speed = 5;
 
+  var nyanStartX = 119;
+  var nyanStartY = 57;
+
   var output = document.getElementById('output');
 
   var rm = new ResourceManager();
@@ -31,8 +34,16 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
 
 
   // create our box2d instance
-  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:9.8});
-  
+  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:9.8, resolveCollisions: true,
+    postSolve: function(idA, idB, impulse){
+      if(impulse > 3){
+        console.log(idA, idB, impulse);
+        rm.playSound(yipee);
+      }
+      if(idB == ground.id) {
+        location.reload();
+      }
+    }});
 
   //create each of the shapes in the world
   ground = new Rectangle({
@@ -46,6 +57,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   box.addBody(ground); //add the shape to the box
   world[geomId] = ground; //keep a reference to the shape for fast lookup
 
+  geomId++;
   celing = new Rectangle({
     id: geomId,
     x: 385 / SCALE,
@@ -57,6 +69,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   box.addBody(celing);
   world[geomId] = celing;
 
+  geomId++;
   leftWall = new Rectangle({
     id: geomId,
     x: -80 / SCALE,
@@ -102,8 +115,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   geomId++;
   nyan = new Rectangle({
     id: geomId,
-    x: 116 / SCALE,
-    y: 360 / SCALE,
+    x: nyanStartX / SCALE,
+    y: nyanStartY / SCALE,
     halfWidth: 40 / SCALE,
     halfHeight: 28 / SCALE,
     staticBody: false,
@@ -202,10 +215,6 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
           entity.update(bodiesState[id]);
         }
       }
-      if(ground.y-nyan.y < ground.halfHeight + nyan.halfHeight) {
-        console.log(ground.y+","+nyan.y);
-      }
-
     },
     draw: function(context){
       context.drawImage(backImg, 0, 0, this.width, this.height);
