@@ -15,7 +15,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
 
   var rm = new ResourceManager();
   var backImg = rm.loadImage('images/background.png');
-  var nyanImg = rm.loadImage('images/nyan.png');
+  var nyanImg = rm.loadImage('images/Su-51k out.png');
+  var laserImg = rm.loadImage('images/strip_spikey.png');
   var yarnImg = rm.loadImage('images/yarn.png');
   var yipee = rm.loadSound('sounds/yipee.wav');
 
@@ -34,18 +35,12 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
 
   //shapes in the box2 world, locations are their centers
   var nyan, moon, pyramid, ground, ceiling, leftWall, rightWall, yarn;
-  var B2Vec2 = Box2D.Common.Math.b2Vec2;
+
 
   // create our box2d instance
-  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:0, resolveCollisions: true,
-    postSolve: function(idA, idB, impulse){
-      if(idA == nyan.id || idB == nyan.id){
-        rm.playSound(yipee);
-      }
-    }});
-
-  //create each of the shapes in the world
+  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:0});
   
+  //create each of the shapes in the world
   ground = new Rectangle({
     id: geomId,
     x: 385 / SCALE,
@@ -92,9 +87,9 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
   });
   box.addBody(rightWall);
   world[geomId] = rightWall;
-/*
+
   geomId++;
-  moon = new Circle({
+  /*moon = new Circle({
     id: geomId,
     x: 626 / SCALE,
     y: 120 / SCALE,
@@ -114,48 +109,38 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
   });
   box.addBody(pyramid);
   world[geomId] = pyramid;
-*/
-  geomId++;
-  createNyan(geomId, 119, 48, 0);
 
-  function createNyan(id,xcoord,ycoord,angle){
-    nyan = new Rectangle({
-      id: id,
-      x: xcoord / SCALE,
-      y: ycoord / SCALE,
-      halfWidth: 40 / SCALE,
-      halfHeight: 28 / SCALE,
-      staticBody: false,
-      angle: angle,
-      draw: function(ctx, scale){ // we want to render the nyan cat with an image
-        ctx.save();
-        ctx.translate(this.x * scale, this.y * scale);
-        ctx.rotate(this.angle); // this angle was given to us by box2d's calculations
-        ctx.translate(-(this.x) * scale, -(this.y) * scale);
-        ctx.fillStyle = this.color;
-        ctx.drawImage(
-          nyanImg,
-          (this.x-this.halfWidth) * scale - 10, //lets offset it a little to the left
-          (this.y-this.halfHeight) * scale
-        );
-        ctx.restore();
-      }
-    });
-    box.addBody(nyan);
-    world[id] = nyan;
-  }
+  geomId++;*/
+  nyan = new Rectangle({
+    id: geomId,
+    x: nyanStartX / SCALE,
+    y: nyanStartY / SCALE,
+    halfWidth: 40 / SCALE,
+    halfHeight: 54 / SCALE,
+    staticBody: false,
+    clamp: function(){
+    	if (nyan.x >= gameW/SCALE-(41 / SCALE)){nyan.x = 0+(42/SCALE);}
+    	if (nyan.x <= 0+(41 / SCALE)){nyan.x = gameW/SCALE-(42/SCALE);}
+    },
+    draw: function(ctx, scale){ // we want to render the nyan cat with an image
+      ctx.save();
+      ctx.translate(this.x * scale, this.y * scale);
 
-  function resetNyan(myThingId,x,y,angle,vector,speed){
-    box.removeBody(myThingId);
-    delete world[myThingId];
-    createNyan(myThingId, x, y, angle);
+      ctx.rotate(this.angle); // this angle was given to us by box2d's calculations
+      ctx.translate(-(this.x) * scale, -(this.y) * scale);
+      ctx.fillStyle = this.color;
+      ctx.drawImage(
+        nyanImg,
+        (this.x-this.halfWidth) * scale - 10, //lets offset it a little to the left
+        (this.y-this.halfHeight) * scale
+      );
+      ctx.restore();
+    }
+  });
+  box.addBody(nyan);
+  world[geomId] = nyan;
 
-    var body = box.bodiesMap[myThingId];
-    body.ApplyForce(
-      new B2Vec2(speed.x, speed.y,
-      body.GetWorldCenter()
-    ));
-  }
+
 
   //setup a GameCore instance
   var game = new GameCore({
@@ -173,15 +158,18 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
     },
     handleInput: function(im){
       if(im.keyActions[keys.LEFT_ARROW].isPressed()){
-        box.applyImpulse(nyan.id, 180, speed);
+      	box.bodiesMap[nyan.id].ApplyTorque(-10);
+        //box.applyImpulse(nyan.id, 180, speed);
       }
 
       if(im.keyActions[keys.RIGHT_ARROW].isPressed()){
-        box.applyImpulse(nyan.id, 0, speed);
+      box.bodiesMap[nyan.id].ApplyTorque(10);
+      //box.applyImpulse(nyan.id, 0, speed);
       }
 
       if(im.keyActions[keys.UP_ARROW].isPressed()){
-        box.applyImpulse(nyan.id, 270, speed);
+        
+        box.applyImpulse(nyan.id, nyan.angle*57.2957795+270, speed/2);
       }
 
       if(im.keyActions[keys.DOWN_ARROW].isPressed()){
@@ -190,27 +178,9 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
 
       //.play sounds with the space bar !
       if(im.keyActions[keys.SPACE].getAmount()){
-        var thisYarn = yarns.pop().id;
-        box.removeBody(thisYarn);
-        delete world[thisYarn];
+        //rm.playSound(yipee);
+        fire();
       }
-/*
-      if(nyan.x > gameW/SCALE){
-        resetNyan(nyan.id,0,nyan.y*SCALE,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
-      }
-      if(nyan.y > gameH/SCALE){
-        resetNyan(nyan.id,nyan.x*SCALE,0,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
-      }
-      if(nyan.x < 0){
-        console.log(gameW/SCALE);
-        resetNyan(nyan.id,gameW,nyan.y*SCALE,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
-      }
-      if(nyan.y < 0){
-        console.log(gameH/SCALE);
-        resetNyan(nyan.id,nyan.x*SCALE,gameH,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
-      }
-
-      console.log(nyan.angularVelocity+","+nyan.linearVelocity);*/
 
       //when creating geometry, you may want to use the to determine where you are on the canvas
       //if(im.mouseAction.position){
@@ -229,7 +199,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
         }
       }
       spawnMillis += millis;
-      if(spawnMillis > 500){
+      if(spawnMillis > 5000){
         spawnMillis = 0;
 
         geomId++;
@@ -239,9 +209,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
           y: 390 / SCALE,
           radius: 30 / SCALE,
           staticBody: false,
-          density: 0.001,  // al little lighter
-          restitution: 0.001, // a little bouncier
-          friction: 0.001,
+          density: 0.5,  // al little lighter
+          restitution: 0.8, // a little bouncier
           draw: function(ctx, scale){  //we also want to render the yarn with an image
             ctx.save();
             ctx.translate(this.x * scale, this.y * scale);
@@ -280,18 +249,59 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
       //ground.draw(context, SCALE);
       //moon.draw(context, SCALE);
       //pyramid.draw(context, SCALE);
-      //nyan.draw(context, SCALE);
-      //yarn.draw(context, SCALE);
-      
+
       for (var entity in world) {
         if(!world[entity].hidden){
           world[entity].draw(context, SCALE);
         }
       }
-      
     }
   });
-
+  var i =0;
+  var bullets = [];
+  function fire(){
+  		geomId++;
+        var bullet = new Circle({
+          id: geomId,
+          x: nyan.x+(16/SCALE)*Math.sin((nyan.angle+270)/360*2*Math.PI)*nyan.halfWidth,
+          y: nyan.y+(16/SCALE)*Math.cos((nyan.angle+270)/360*2*Math.PI)*nyan.halfHeight,
+          radius: 16 / SCALE,
+          staticBody: false,
+          density: 1,  // al little lighter
+          restitution: 0.0, // a little bouncier
+          i: 0,
+          draw: function(ctx, scale){  //we also want to render the yarn with an image
+            
+            ctx.save();
+            ctx.translate(this.x * scale, this.y * scale);
+            ctx.rotate(this.angle);
+            ctx.translate(-(this.x) * scale, -(this.y) * scale);
+            ctx.fillStyle = this.color;
+            var framesize = 32;
+            ctx.drawImage(laserImg,
+            	16+framesize*i,
+            	16, 
+            	framesize, 
+            	framesize, 
+            	(this.x-this.radius) * scale,
+              (this.y-this.radius) * scale, 
+              framesize, 
+              framesize);
+            /*ctx.drawImage(
+              laserImg,
+              (this.x-this.radius) * scale,
+              (this.y-this.radius) * scale
+            );*/
+            ctx.restore();
+            this.i++;
+            if (this.i==16){this.i==0;}
+          } 
+        });
+        box.addBody(bullet);
+        world[geomId] = bullet;
+        box.applyImpulse(geomId, nyan.angle*57.2957795+270, speed/2);
+        bullets.push(bullet);
+      }
   //if you want to take a look at the game object in dev tools
   console.log(game);
 
