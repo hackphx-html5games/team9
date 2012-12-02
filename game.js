@@ -1,6 +1,6 @@
 //load the AMD modules we need
-require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d/Box', 'frozen/box2d/RectangleEntity', 'frozen/box2d/PolygonEntity', 'frozen/box2d/CircleEntity'],
- function(GameCore, ResourceManager, keys, Box, Rectangle, Polygon, Circle){
+require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/declare', 'frozen/box2d/Box', 'frozen/box2d/RectangleEntity', 'frozen/box2d/PolygonEntity', 'frozen/box2d/CircleEntity'],
+ function(GameCore, ResourceManager, keys, declare, Box, Rectangle, Polygon, Circle){
 
   //dimensions same as canvas.
   var gameH = 480;
@@ -19,8 +19,12 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   var yarnImg = rm.loadImage('images/yarn.png');
   var yipee = rm.loadSound('sounds/yipee.wav');
 
+  var yarnMillis = 0;
+  var spawnMillis = 0;
+
   var box;
   var world = {};
+  var yarns = [];
 
   //pixels per meter for box2d
   var SCALE = 30.0;
@@ -32,11 +36,10 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   var nyan, moon, pyramid, ground, ceiling, leftWall, rightWall, yarn;
 
 
-
   // create our box2d instance
-  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:9.8, resolveCollisions: true,
+  box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:0, resolveCollisions: true,
     postSolve: function(idA, idB, impulse){
-      if(impulse > 3){
+      if(impulse > 3 && idA == nyan.id){
         console.log(idA, idB, impulse);
         rm.playSound(yipee);
       }
@@ -52,7 +55,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
     y: 480 / SCALE,
     halfWidth: 1000 / SCALE,
     halfHeight: 40 / SCALE,
-    staticBody: true
+    staticBody: true,
+    hidden: true
   });
   box.addBody(ground); //add the shape to the box
   world[geomId] = ground; //keep a reference to the shape for fast lookup
@@ -98,7 +102,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
     x: 626 / SCALE,
     y: 120 / SCALE,
     radius: 63 / SCALE,
-    staticBody: true
+    staticBody: true,
+    hidden: true
   });
   box.addBody(moon);
   world[geomId] = moon;
@@ -107,7 +112,8 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   pyramid = new Polygon({
     id: geomId,
     points: [{x: 320 / SCALE, y: 440 / SCALE}, {x: 446 / SCALE, y: 290 / SCALE}, {x: 565 / SCALE, y: 440 / SCALE}],
-    staticBody: true
+    staticBody: true,
+    hidden: true
   });
   box.addBody(pyramid);
   world[geomId] = pyramid;
@@ -136,33 +142,6 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
   });
   box.addBody(nyan);
   world[geomId] = nyan;
-/*
-  geomId++;
-  yarn = new Circle({
-    id: geomId,
-    x: 600 / SCALE,
-    y: 390 / SCALE,
-    radius: 30 / SCALE,
-    staticBody: false,
-    density: 0.5,  // al little lighter
-    restitution: 0.8, // a little bouncier
-    draw: function(ctx, scale){  //we also want to render the yarn with an image
-      ctx.save();
-      ctx.translate(this.x * scale, this.y * scale);
-      ctx.rotate(this.angle);
-      ctx.translate(-(this.x) * scale, -(this.y) * scale);
-      ctx.fillStyle = this.color;
-      ctx.drawImage(
-        yarnImg,
-        (this.x-this.radius) * scale,
-        (this.y-this.radius) * scale
-      );
-      ctx.restore();
-    }
-  });
-  box.addBody(yarn);
-  world[geomId] = yarn;
-*/
 
 
 
@@ -175,6 +154,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
       im.addKeyAction(keys.LEFT_ARROW);
       im.addKeyAction(keys.RIGHT_ARROW);
       im.addKeyAction(keys.UP_ARROW);
+      im.addKeyAction(keys.DOWN_ARROW);
 
       //the extra param says to only detect inital press
       im.addKeyAction(keys.SPACE, true);
@@ -192,9 +172,15 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
         box.applyImpulse(nyan.id, 270, speed);
       }
 
+      if(im.keyActions[keys.DOWN_ARROW].isPressed()){
+        box.applyImpulse(nyan.id, 90, speed);
+      }
+
       //.play sounds with the space bar !
       if(im.keyActions[keys.SPACE].getAmount()){
-        rm.playSound(yipee);
+        var thisYarn = yarns.pop().id;
+        box.removeBody(thisYarn);
+        delete world[thisYarn];
       }
 
       //when creating geometry, you may want to use the to determine where you are on the canvas
@@ -203,7 +189,49 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
       //}
     },
     update: function(millis){
-      
+      yarnMillis += millis;
+      if(yarnMillis > 2000){
+        yarnMillis = 0;
+        var yarndirection = Math.floor((Math.random()*359)+1);
+
+        for (var yarn in yarns) {
+          console.log(yarns[yarn]);
+          box.applyImpulse(yarns[yarn].id, yarndirection, speed*5);
+        }
+      }
+      spawnMillis += millis;
+      if(spawnMillis > 5000){
+        spawnMillis = 0;
+
+        geomId++;
+        var thisYarn = new Circle({
+          id: geomId,
+          x: 600 / SCALE,
+          y: 390 / SCALE,
+          radius: 30 / SCALE,
+          staticBody: false,
+          density: 0.5,  // al little lighter
+          restitution: 0.8, // a little bouncier
+          draw: function(ctx, scale){  //we also want to render the yarn with an image
+            ctx.save();
+            ctx.translate(this.x * scale, this.y * scale);
+            ctx.rotate(this.angle);
+            ctx.translate(-(this.x) * scale, -(this.y) * scale);
+            ctx.fillStyle = this.color;
+            ctx.drawImage(
+              yarnImg,
+              (this.x-this.radius) * scale,
+              (this.y-this.radius) * scale
+            );
+            ctx.restore();
+          }
+        });
+        box.addBody(thisYarn);
+        world[geomId] = thisYarn;
+        yarns.push(thisYarn);
+      }
+
+
       //have box2d do an interation
       box.update();
 
@@ -215,14 +243,22 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'frozen/box2d
           entity.update(bodiesState[id]);
         }
       }
+
     },
     draw: function(context){
       context.drawImage(backImg, 0, 0, this.width, this.height);
       //ground.draw(context, SCALE);
       //moon.draw(context, SCALE);
       //pyramid.draw(context, SCALE);
-      nyan.draw(context, SCALE);
+      //nyan.draw(context, SCALE);
       //yarn.draw(context, SCALE);
+      
+      for (var entity in world) {
+        if(!world[entity].hidden){
+          world[entity].draw(context, SCALE);
+        }
+      }
+      
     }
   });
 
