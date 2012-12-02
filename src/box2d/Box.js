@@ -146,6 +146,13 @@ define([
         body.GetWorldCenter()
       );
     },
+    applyForceDirectly : function(bodyId, vectorx, vectory) {
+      var body = this.bodiesMap[bodyId];
+      body.ApplyForce(
+        new B2Vec2(vectorx, vectory,
+        body.GetWorldCenter()
+      );
+    },
     removeBody: function(id) {
       if(this.bodiesMap[id]){
         this.world.DestroyBody(this.bodiesMap[id]);

@@ -34,21 +34,18 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
 
   //shapes in the box2 world, locations are their centers
   var nyan, moon, pyramid, ground, ceiling, leftWall, rightWall, yarn;
-
+  var B2Vec2 = Box2D.Common.Math.b2Vec2;
 
   // create our box2d instance
   box = new Box({intervalRate:60, adaptive:false, width:gameW, height:gameH, scale:SCALE, gravityY:0, resolveCollisions: true,
     postSolve: function(idA, idB, impulse){
-      if(impulse > 3 && idA == nyan.id){
-        console.log(idA, idB, impulse);
+      if(idA == nyan.id || idB == nyan.id){
         rm.playSound(yipee);
-      }
-      if(idB == ground.id) {
-        location.reload();
       }
     }});
 
   //create each of the shapes in the world
+  
   ground = new Rectangle({
     id: geomId,
     x: 385 / SCALE,
@@ -95,7 +92,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
   });
   box.addBody(rightWall);
   world[geomId] = rightWall;
-
+/*
   geomId++;
   moon = new Circle({
     id: geomId,
@@ -117,33 +114,48 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
   });
   box.addBody(pyramid);
   world[geomId] = pyramid;
-
+*/
   geomId++;
-  nyan = new Rectangle({
-    id: geomId,
-    x: nyanStartX / SCALE,
-    y: nyanStartY / SCALE,
-    halfWidth: 40 / SCALE,
-    halfHeight: 28 / SCALE,
-    staticBody: false,
-    draw: function(ctx, scale){ // we want to render the nyan cat with an image
-      ctx.save();
-      ctx.translate(this.x * scale, this.y * scale);
-      ctx.rotate(this.angle); // this angle was given to us by box2d's calculations
-      ctx.translate(-(this.x) * scale, -(this.y) * scale);
-      ctx.fillStyle = this.color;
-      ctx.drawImage(
-        nyanImg,
-        (this.x-this.halfWidth) * scale - 10, //lets offset it a little to the left
-        (this.y-this.halfHeight) * scale
-      );
-      ctx.restore();
-    }
-  });
-  box.addBody(nyan);
-  world[geomId] = nyan;
+  createNyan(geomId, 119, 48, 0);
 
+  function createNyan(id,xcoord,ycoord,angle){
+    nyan = new Rectangle({
+      id: id,
+      x: xcoord / SCALE,
+      y: ycoord / SCALE,
+      halfWidth: 40 / SCALE,
+      halfHeight: 28 / SCALE,
+      staticBody: false,
+      angle: angle,
+      draw: function(ctx, scale){ // we want to render the nyan cat with an image
+        ctx.save();
+        ctx.translate(this.x * scale, this.y * scale);
+        ctx.rotate(this.angle); // this angle was given to us by box2d's calculations
+        ctx.translate(-(this.x) * scale, -(this.y) * scale);
+        ctx.fillStyle = this.color;
+        ctx.drawImage(
+          nyanImg,
+          (this.x-this.halfWidth) * scale - 10, //lets offset it a little to the left
+          (this.y-this.halfHeight) * scale
+        );
+        ctx.restore();
+      }
+    });
+    box.addBody(nyan);
+    world[id] = nyan;
+  }
 
+  function resetNyan(myThingId,x,y,angle,vector,speed){
+    box.removeBody(myThingId);
+    delete world[myThingId];
+    createNyan(myThingId, x, y, angle);
+
+    var body = box.bodiesMap[myThingId];
+    body.ApplyForce(
+      new B2Vec2(speed.x, speed.y,
+      body.GetWorldCenter()
+    ));
+  }
 
   //setup a GameCore instance
   var game = new GameCore({
@@ -182,6 +194,23 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
         box.removeBody(thisYarn);
         delete world[thisYarn];
       }
+/*
+      if(nyan.x > gameW/SCALE){
+        resetNyan(nyan.id,0,nyan.y*SCALE,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
+      }
+      if(nyan.y > gameH/SCALE){
+        resetNyan(nyan.id,nyan.x*SCALE,0,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
+      }
+      if(nyan.x < 0){
+        console.log(gameW/SCALE);
+        resetNyan(nyan.id,gameW,nyan.y*SCALE,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
+      }
+      if(nyan.y < 0){
+        console.log(gameH/SCALE);
+        resetNyan(nyan.id,nyan.x*SCALE,gameH,nyan.angle,nyan.angularVelocity,nyan.linearVelocity);
+      }
+
+      console.log(nyan.angularVelocity+","+nyan.linearVelocity);*/
 
       //when creating geometry, you may want to use the to determine where you are on the canvas
       //if(im.mouseAction.position){
@@ -200,7 +229,7 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
         }
       }
       spawnMillis += millis;
-      if(spawnMillis > 5000){
+      if(spawnMillis > 500){
         spawnMillis = 0;
 
         geomId++;
@@ -210,8 +239,9 @@ require(['frozen/GameCore', 'frozen/ResourceManager', 'dojo/keys', 'dojo/_base/d
           y: 390 / SCALE,
           radius: 30 / SCALE,
           staticBody: false,
-          density: 0.5,  // al little lighter
-          restitution: 0.8, // a little bouncier
+          density: 0.001,  // al little lighter
+          restitution: 0.001, // a little bouncier
+          friction: 0.001,
           draw: function(ctx, scale){  //we also want to render the yarn with an image
             ctx.save();
             ctx.translate(this.x * scale, this.y * scale);
